@@ -1,103 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Peer-to-peer Learning Platform | Adikavi Nannaya University</title>
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700&display=swap"
-        rel="stylesheet">
-
-    <!-- Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Custom CSS -->
-    <link href="css/style.css" rel="stylesheet">
+    <title>Redirecting...</title>
+    <script>
+        // Redirect to landing page
+        window.location.href = 'landing.html';
+    </script>
 </head>
-
 <body>
-    <div class="background-mesh">
-    </div>
-
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container nav-container">
-            <div class="brand">
-                <div class="brand-icon">
-                    <i class="fas fa-graduation-cap"></i>
-                </div>
-                <div class="brand-text">
-                    <h1>Adikavi Nannaya University</h1>
-                    <p>Peer-to-peer Learning Platform</p>
-                </div>
-            </div>
-            <div class="nav-actions">
-                <button class="btn btn-secondary" onclick="showRegisterModal()">
-                    <i class="fas fa-user-plus"></i> Register
-                </button>
-                <button class="btn btn-secondary" id="loginBtn" onclick="showLoginModal()">
-                    <i class="fas fa-user"></i> Login
-                </button>
-                <button class="btn btn-primary" onclick="showUploadModal()">
-                    <i class="fas fa-cloud-upload-alt"></i> Upload Video
-                </button>
-                <button class="btn btn-secondary" onclick="window.location.href='admin.html'">
-                    <i class="fas fa-shield-alt"></i> Admin
-                </button>
-                <button class="btn btn-secondary" id="logoutBtn" style="display: none;" onclick="logoutUser()">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-                <span class="user-badge" id="currentUserBadge" style="display: none;"></span>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <header class="hero">
-        <div class="container hero-container">
-            <div class="hero-content">
-                <h2 class="hero-title">Learn. Share. <span class="gradient-text">Grow Together.</span></h2>
-                <p class="hero-subtitle">
-                    Unlock the potential of collaborative learning. Access video lectures from peers across all
-                    engineering departments.
-                </p>
-
-                <!-- Search Bar -->
-                <div class="search-bar-container">
-                    <div class="search-input-wrapper">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="searchInput" placeholder="Search for subjects, topics, or keywords...">
-                    </div>
-                    <button class="btn btn-primary search-btn" onclick="searchVideos()">Search</button>
-                </div>
-
-                <!-- Stats -->
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number" id="studentCount">-</span>
-                        <span class="stat-label">Students</span>
-                    </div>
-                    <div class="stat-divider"></div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="videoCount">-</span>
-                        <span class="stat-label">Videos</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="container main-content">
-
-        <!-- Filters -->
-        <section class="filters-section">
-            <h3 class="section-title">Browse by Department</h3>
+    <p>Redirecting to landing page...</p>
+</body>
+</html>
             <div class="department-filters">
                 <button class="filter-chip active" onclick="loadAllVideos()" data-dept="all">
                     <i class="fas fa-th-large"></i> All
@@ -189,7 +104,7 @@
                     <select id="securityQuestion" required>
                         <option value="">Select a question</option>
                         <option value="What is your favorite subject?">What is your favorite subject?</option>
-                        <option value="What is your mother’s first name?">What is your mother’s first name?</option>
+                        <option value="What is your favorite hobby?">What is your favorite hobby?</option>
                         <option value="What is the name of your first school?">What is the name of your first school?</option>
                         <option value="What is your favorite teacher’s name?">What is your favorite teacher’s name?</option>
                     </select>
@@ -401,22 +316,36 @@
         </svg>
     </button>
 
-    <div id="ai-chatbot-window" class="ai-chatbot">
+    <div id="ai-chatbot-window" class="ai-chatbot" role="dialog" aria-modal="false" aria-label="AI Tutor Chat Window">
+        <button id="ai-chatbot-resize-left" class="ai-chatbot-resize-handle" type="button" aria-label="Resize chat window"></button>
         <div class="ai-chatbot-header">
-            <span>AI Tutor</span>
+            <div class="ai-chatbot-title-wrap">
+                <span class="ai-chatbot-title">AI Tutor</span>
+                <span class="ai-chatbot-status">Online now</span>
+            </div>
             <button id="ai-chatbot-close" type="button" aria-label="Close AI Tutor">
                 <i class="fas fa-times"></i>
             </button>
         </div>
+        <div class="ai-chatbot-prompt-row" aria-label="Quick prompts">
+            <button type="button" class="ai-prompt-chip" data-prompt="Explain this topic in simple terms">Explain simply</button>
+            <button type="button" class="ai-prompt-chip" data-prompt="Give me 5 interview questions on this topic">Interview prep</button>
+            <button type="button" class="ai-prompt-chip" data-prompt="Create a quick quiz from this content">Create quiz</button>
+        </div>
         <div id="ai-chatbot-messages" class="ai-chatbot-messages">
-            <div class="ai-message bot">Hi! Upload a PDF/image or ask a question.</div>
+            <div class="ai-message bot">Hi! I am your learning assistant. Upload a PDF/image or ask any question to get a guided answer.</div>
         </div>
         <div class="ai-chatbot-controls">
-            <div class="ai-row">
+            <div class="ai-row ai-file-row">
+                <label for="ai-file-input" class="ai-attach-btn" aria-label="Attach PDF or image">
+                    <i class="fas fa-paperclip" aria-hidden="true"></i>
+                </label>
                 <input type="file" id="ai-file-input" accept=".pdf,image/*">
+                <span id="ai-file-name" class="ai-file-name">No file selected</span>
             </div>
-            <div class="ai-row">
-                <input type="text" id="ai-user-input" placeholder="Type your question...">
+            <div class="ai-row ai-input-row">
+                <label for="ai-user-input" class="sr-only">Type your question</label>
+                <input type="text" id="ai-user-input" placeholder="Ask anything about your lesson...">
                 <button id="ai-send-btn" type="button">Send</button>
             </div>
         </div>

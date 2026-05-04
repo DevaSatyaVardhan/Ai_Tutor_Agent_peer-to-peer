@@ -23,4 +23,6 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     void incrementViewCount(Long videoId);
 
     long countByStudentId(Long studentId);
+
+    List<Video> findTop5ByStudentIdOrderByUploadDateDesc(Long studentId);
 }

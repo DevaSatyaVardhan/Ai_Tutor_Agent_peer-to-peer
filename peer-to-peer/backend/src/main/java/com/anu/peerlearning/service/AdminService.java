@@ -9,6 +9,7 @@ import com.anu.peerlearning.repository.VideoRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminService {
@@ -31,6 +32,15 @@ public class AdminService {
         return studentRepository.findAll().stream()
                 .map(this::toSummary)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteStudent(Long studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found with id: " + studentId));
+        
+        // The cascade delete will handle videos, likes, and comments
+        studentRepository.delete(student);
     }
 
     private AdminStudentSummary toSummary(Student student) {

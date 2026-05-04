@@ -149,6 +149,21 @@ public class VideoService {
         videoRepository.deleteAllById(videoIds);
     }
 
+    public List<VideoResponseDTO> getAllVideosDTO() {
+        return videoRepository.findAll()
+                .stream()
+                .map(this::toVideoResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    public void deleteVideoById(Long videoId) {
+        var videoOpt = videoRepository.findById(videoId);
+        if (videoOpt.isEmpty()) {
+            throw new RuntimeException("Video not found");
+        }
+        videoRepository.deleteById(videoId);
+    }
+
     public void deleteVideoById(Long videoId, UserPrincipal principal) {
         if (principal == null) {
             throw new RuntimeException("Unauthorized");

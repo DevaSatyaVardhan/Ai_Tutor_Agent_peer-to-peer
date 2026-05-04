@@ -6,9 +6,9 @@ import com.anu.peerlearning.dto.LoginRequest;
 import com.anu.peerlearning.dto.ResetPasswordRequest;
 import com.anu.peerlearning.dto.SecurityQuestionRequest;
 import com.anu.peerlearning.dto.VerifySecurityAnswerRequest;
+import com.anu.peerlearning.security.JwtTokenProvider;
 import com.anu.peerlearning.security.UserPrincipal;
 import com.anu.peerlearning.service.AuthService;
-import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,14 +24,18 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthController(AuthService authService, AuthenticationManager authenticationManager) {
+    public AuthController(AuthService authService, 
+                         AuthenticationManager authenticationManager,
+                         JwtTokenProvider jwtTokenProvider) {
         this.authService = authService;
         this.authenticationManager = authenticationManager;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> loginStudent(@Valid @RequestBody LoginRequest request, HttpSession session) {
+    public ResponseEntity<?> loginStudent(@Valid @RequestBody LoginRequest request) {
         try {
             AuthResponse authResponse = authService.authenticateStudent(request.getRollNumber(), request.getPassword());
             UserPrincipal principal = new UserPrincipal(
@@ -43,13 +47,16 @@ public class AuthController {
                     authResponse.getEmail()
             );
 
-            // Create authentication token and store in security context
+            // Create authentication token
             UsernamePasswordAuthenticationToken authentication = 
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            
+            // Generate JWT token
+            String jwtToken = jwtTokenProvider.generateToken(authentication);
 
             Map<String, Object> body = new HashMap<>();
             body.put("success", true);
+            body.put("token", jwtToken);
             body.put("user", authResponse);
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -61,7 +68,7 @@ public class AuthController {
     }
 
     @PostMapping("/admin/login")
-    public ResponseEntity<?> loginAdmin(@Valid @RequestBody AdminLoginRequest request, HttpSession session) {
+    public ResponseEntity<?> loginAdmin(@Valid @RequestBody AdminLoginRequest request) {
         try {
             AuthResponse authResponse = authService.authenticateAdmin(request.getEmail(), request.getPassword());
             UserPrincipal principal = new UserPrincipal(
@@ -73,13 +80,16 @@ public class AuthController {
                     authResponse.getEmail()
             );
 
-            // Create authentication token and store in security context
+            // Create authentication token
             UsernamePasswordAuthenticationToken authentication = 
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            
+            // Generate JWT token
+            String jwtToken = jwtTokenProvider.generateToken(authentication);
 
             Map<String, Object> body = new HashMap<>();
             body.put("success", true);
+            body.put("token", jwtToken);
             body.put("user", authResponse);
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -91,8 +101,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
-        session.invalidate();
+    public ResponseEntity<?> logout() {
+        SecurityContextHolder.clearContext();
 
         Map<String, Object> body = new HashMap<>();
         body.put("success", true);

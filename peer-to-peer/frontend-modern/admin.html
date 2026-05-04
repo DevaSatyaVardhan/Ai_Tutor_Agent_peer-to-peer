@@ -4,12 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | Peer-to-peer Learning Platform</title>
+    <title>Admin Dashboard | Peer Learning Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
 </head>
@@ -21,18 +19,16 @@
         <div class="container nav-container">
             <div class="brand">
                 <div class="brand-icon">
-                    <i class="fas fa-graduation-cap"></i>
+                    <i class="fas fa-user-shield"></i>
                 </div>
                 <div class="brand-text">
                     <h1>Admin Dashboard</h1>
-                    <p>Peer-to-peer Learning Platform</p>
+                    <p>Platform Management</p>
                 </div>
             </div>
             <div class="nav-actions">
-                <button class="btn btn-secondary" onclick="window.location.href='index.html'">
-                    <i class="fas fa-home"></i> Home
-                </button>
-                <button class="btn btn-secondary" id="adminLogoutBtn" style="display: none;" onclick="adminLogout()">
+                <span class="user-badge" id="adminUserBadge"></span>
+                <button class="btn btn-secondary" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
@@ -40,59 +36,73 @@
     </nav>
 
     <main class="container main-content">
-        <section class="admin-login" id="adminLoginSection">
-            <h3 class="section-title">Administrator Login</h3>
-            <div class="card admin-card">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="adminEmail" placeholder="admin.peertopeer@gmail.com" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="adminPassword" placeholder="Enter admin password" required>
-                </div>
-                <button class="btn btn-primary" onclick="adminLogin()">Login</button>
-                <p class="form-hint" id="adminLoginStatus"></p>
-            </div>
-        </section>
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('students')">
+                <i class="fas fa-users"></i> Student Management
+            </button>
+            <button class="tab-btn" onclick="switchTab('videos')">
+                <i class="fas fa-video"></i> Video Management
+            </button>
+        </div>
 
-        <section class="admin-dashboard" id="adminDashboard" style="display: none;">
+        <!-- Students Tab -->
+        <section class="tab-content active" id="studentsTab">
             <div class="dashboard-header">
                 <div>
                     <h3 class="section-title">Registered Students</h3>
-                    <p class="section-subtitle">Student activity, uploads, and engagement</p>
+                    <p class="section-subtitle">Manage student accounts and monitor activity</p>
                 </div>
                 <div class="dashboard-actions">
-                    <button class="btn btn-secondary" onclick="loadAdminStudents()">
+                    <button class="btn btn-secondary" onclick="loadStudents()">
                         <i class="fas fa-sync"></i> Refresh
                     </button>
                 </div>
             </div>
 
             <div class="table-card">
-                <table class="admin-table" id="adminStudentsTable">
+                <table class="admin-table" id="studentsTable">
                     <thead>
                         <tr>
                             <th>Student</th>
-                            <th>Department</th>
                             <th>Roll Number</th>
+                            <th>Department</th>
+                            <th>Email</th>
                             <th>Videos</th>
-                            <th>Likes</th>
-                            <th>Comments</th>
-                            <th>Activity</th>
                             <th>Registered</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="8" class="table-placeholder">Login to load student data.</td>
+                            <td colspan="7" class="table-placeholder">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
+
+        <!-- Videos Tab -->
+        <section class="tab-content" id="videosTab">
+            <div class="dashboard-header">
+                <div>
+                    <h3 class="section-title">All Videos</h3>
+                    <p class="section-subtitle">Manage uploaded videos across the platform</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="btn btn-secondary" onclick="loadVideos()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="videos-grid" id="videosGrid">
+                <p class="loading-text">Loading videos...</p>
+            </div>
+        </section>
     </main>
 
+    <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
 </body>
 

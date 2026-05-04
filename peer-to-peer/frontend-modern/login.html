@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | AKNU Learning</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+                }
+            }
+        }
+    </script>
+    <link href="css/edtech.css" rel="stylesheet" />
+</head>
+
+<body class="font-sans">
+    <div class="min-h-screen bg-slate-50">
+        <div class="mx-auto grid min-h-screen max-w-6xl grid-cols-1 items-stretch gap-0 px-4 py-10 md:grid-cols-2">
+            <!-- Left: Illustration -->
+            <div class="hidden md:flex flex-col justify-between rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-700 p-10 text-white shadow-lg">
+                <a href="landing.html" class="inline-flex items-center gap-3 text-white">
+                    <div class="h-10 w-10 rounded-xl bg-white/15 ring-1 ring-white/20 flex items-center justify-center">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div class="font-extrabold tracking-tight">AKNU Learning</div>
+                        <div class="text-xs text-white/75">AI Tutor & Peer-to-Peer Collaboration</div>
+                    </div>
+                </a>
+
+                <div class="mt-10">
+                    <h1 class="text-3xl font-extrabold leading-tight tracking-tight">Learn Smarter with AI & Peers</h1>
+                    <p class="mt-3 text-sm text-white/85">Access AI tutoring, share knowledge, and explore videos from your department — all in one dashboard.</p>
+
+                    <div class="mt-8 grid gap-3">
+                        <div class="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                            <div class="text-sm font-semibold">Modern AI Tutor</div>
+                            <div class="text-xs text-white/75">Chat-style assistant with history + uploads</div>
+                        </div>
+                        <div class="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                            <div class="text-sm font-semibold">Video Knowledge Sharing</div>
+                            <div class="text-xs text-white/75">Search, filter, and learn faster</div>
+                        </div>
+                        <div class="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                            <div class="text-sm font-semibold">Secure Platform</div>
+                            <div class="text-xs text-white/75">JWT auth + admin management</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-xs text-white/65">© 2026 Adikavi Nannaya University</div>
+            </div>
+
+            <!-- Right: Form -->
+            <div class="flex items-center justify-center">
+                <div class="w-full max-w-md">
+                    <div class="md:hidden mb-6">
+                        <a href="landing.html" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Home
+                        </a>
+                    </div>
+
+                    <div class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200 md:p-8">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-xl font-extrabold tracking-tight text-slate-900">Welcome back</div>
+                                <div class="mt-1 text-sm text-slate-600">Sign in to continue</div>
+                            </div>
+                            <a href="landing.html" class="hidden md:inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 ring-1 ring-slate-200">
+                                <i class="fa-solid fa-house"></i> Home
+                            </a>
+                        </div>
+
+                        <div class="mt-5 space-y-3">
+                            <div id="errorAlert" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+                            <div id="successAlert" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"></div>
+                        </div>
+
+                        <!-- Role toggle -->
+                        <div class="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-2 ring-1 ring-slate-200">
+                            <button type="button" class="role-option active inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold text-slate-900 transition" data-role="student" onclick="selectRole('student')">
+                                <i class="fa-solid fa-user-graduate text-indigo-600"></i> Student
+                            </button>
+                            <button type="button" class="role-option inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold text-slate-700 hover:bg-white transition" data-role="admin" onclick="selectRole('admin')">
+                                <i class="fa-solid fa-user-shield text-indigo-600"></i> Admin
+                            </button>
+                        </div>
+
+                        <form id="loginForm" class="mt-6 space-y-4">
+                            <div id="rollNumberGroup">
+                                <label class="text-xs font-bold text-slate-700">Roll Number</label>
+                                <div class="mt-1 relative">
+                                    <i class="fa-solid fa-id-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input id="rollNumber" name="rollNumber" type="text" required class="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100" placeholder="e.g. 20A31A05XX" />
+                                </div>
+                            </div>
+
+                            <div id="emailGroup" class="hidden">
+                                <label class="text-xs font-bold text-slate-700">Email Address</label>
+                                <div class="mt-1 relative">
+                                    <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input id="email" name="email" type="email" class="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100" placeholder="admin@example.com" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold text-slate-700">Password</label>
+                                    <button type="button" id="togglePassword" class="edtech-focus rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                        Show
+                                    </button>
+                                </div>
+                                <div class="mt-1 relative">
+                                    <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input id="password" name="password" type="password" required class="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100" placeholder="Your password" />
+                                </div>
+                            </div>
+
+                            <button type="submit" id="loginBtn" class="edtech-hover-lift w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3 text-sm font-extrabold text-white shadow">
+                                <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                            </button>
+                        </form>
+
+                        <div class="mt-6 flex items-center gap-3">
+                            <div class="h-px flex-1 bg-slate-200"></div>
+                            <div class="text-xs font-semibold text-slate-400">New here?</div>
+                            <div class="h-px flex-1 bg-slate-200"></div>
+                        </div>
+
+                        <div class="mt-4 text-center text-sm text-slate-600">
+                            Don’t have an account?
+                            <a class="font-extrabold text-indigo-600 hover:text-indigo-700" href="register.html">Create Account</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script>
+        EdTechUI.attachPageFadeIn();
+
+        const API_BASE = 'http://localhost:8080/api';
+        let currentRole = 'student';
+
+        function rememberIdentifier(role) {
+            try {
+                localStorage.setItem('lastLoginRole', role);
+                if (role === 'student') {
+                    const roll = (document.getElementById('rollNumber').value || '').trim();
+                    if (roll) localStorage.setItem('lastStudentRollNumber', roll);
+                } else {
+                    const email = (document.getElementById('email').value || '').trim();
+                    if (email) localStorage.setItem('lastAdminEmail', email);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function setRoleButtonState(role) {
+            document.querySelectorAll('.role-option').forEach(opt => {
+                const active = opt.getAttribute('data-role') === role;
+                opt.classList.toggle('active', active);
+                opt.classList.toggle('bg-white', active);
+                opt.classList.toggle('shadow-sm', active);
+                opt.classList.toggle('ring-1', active);
+                opt.classList.toggle('ring-slate-200', active);
+                opt.classList.toggle('text-slate-900', active);
+                opt.classList.toggle('text-slate-700', !active);
+            });
+        }
+
+        function selectRole(role) {
+            currentRole = role;
+            setRoleButtonState(role);
+
+            const rollGroup = document.getElementById('rollNumberGroup');
+            const emailGroup = document.getElementById('emailGroup');
+            const rollInput = document.getElementById('rollNumber');
+            const emailInput = document.getElementById('email');
+
+            if (role === 'student') {
+                rollGroup.classList.remove('hidden');
+                emailGroup.classList.add('hidden');
+                rollInput.required = true;
+                emailInput.required = false;
+                emailInput.value = '';
+            } else {
+                rollGroup.classList.add('hidden');
+                emailGroup.classList.remove('hidden');
+                rollInput.required = false;
+                emailInput.required = true;
+                rollInput.value = '';
+            }
+        }
+
+        function showAlert(message, type) {
+            const errorEl = document.getElementById('errorAlert');
+            const successEl = document.getElementById('successAlert');
+
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+
+            const el = type === 'success' ? successEl : errorEl;
+            el.textContent = message;
+            el.classList.remove('hidden');
+
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        // Password visibility
+        document.getElementById('togglePassword').addEventListener('click', () => {
+            const input = document.getElementById('password');
+            const isHidden = input.type === 'password';
+            input.type = isHidden ? 'text' : 'password';
+            document.getElementById('togglePassword').textContent = isHidden ? 'Hide' : 'Show';
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const rememberedRole = localStorage.getItem('lastLoginRole') || 'student';
+            selectRole(rememberedRole);
+
+            // Prefill last identifier (never prefill password)
+            const lastRoll = localStorage.getItem('lastStudentRollNumber') || '';
+            const lastEmail = localStorage.getItem('lastAdminEmail') || '';
+            if (lastRoll) document.getElementById('rollNumber').value = lastRoll;
+            if (lastEmail) document.getElementById('email').value = lastEmail;
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing In...';
+
+            try {
+                const endpoint = currentRole === 'student' ? '/auth/login' : '/auth/admin/login';
+                let requestBody;
+
+                if (currentRole === 'student') {
+                    requestBody = {
+                        rollNumber: document.getElementById('rollNumber').value,
+                        password: document.getElementById('password').value,
+                    };
+                } else {
+                    requestBody = {
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value,
+                    };
+                }
+
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json().catch(() => ({}));
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    rememberIdentifier(currentRole);
+                    showAlert('Login successful! Redirecting...', 'success');
+
+                    setTimeout(() => {
+                        window.location.href = currentRole === 'admin' ? 'admin.html' : 'dashboard.html';
+                    }, 650);
+                } else {
+                    showAlert(data.message || 'Login failed', 'error');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('An error occurred. Please try again.', 'error');
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+            }
+        });
+    </script>
+</body>
+
+</html>

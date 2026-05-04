@@ -14,9 +14,11 @@ CREATE TABLE students (
     password_hash VARCHAR(255),
     security_question VARCHAR(255),
     security_answer_hash VARCHAR(255),
+    role VARCHAR(50) NOT NULL DEFAULT 'ROLE_STUDENT',
     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_department (department),
-    INDEX idx_roll_number (roll_number)
+    INDEX idx_roll_number (roll_number),
+    INDEX idx_role (role)
 );
 
 CREATE TABLE password_resets (

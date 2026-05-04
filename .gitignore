@@ -1,0 +1,34 @@
+# Java / Maven
+**/target/
+**/build-output.txt
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Generated app data and local databases
+**/chroma_db/
+**/memory/
+**/vector_db/
+**/uploads/
+
+# Local environment files
+.env
+.env.*
+*.local
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Frontend dependency cache and build output
+node_modules/
+dist/
+build/
+coverage/

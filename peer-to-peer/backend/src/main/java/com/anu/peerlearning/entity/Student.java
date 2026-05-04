@@ -43,6 +43,9 @@ public class Student {
     @Column(name = "security_answer_hash")
     private String securityAnswerHash;
     
+    @Column(name = "role", nullable = false)
+    private String role = "ROLE_STUDENT";
+    
     @Column(name = "registration_date")
     private LocalDateTime registrationDate;
     
@@ -134,6 +137,14 @@ public class Student {
 
     public void setSecurityAnswerHash(String securityAnswerHash) {
         this.securityAnswerHash = securityAnswerHash;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
     
     public LocalDateTime getRegistrationDate() {

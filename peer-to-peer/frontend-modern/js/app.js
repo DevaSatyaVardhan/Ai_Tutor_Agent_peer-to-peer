@@ -2,7 +2,8 @@
 
 // API Base URL
 const API_BASE_URL = 'http://localhost:8080/api';
-const AI_BASE_URL = 'http://127.0.0.1:8000';
+// AI service is now accessed through Spring Boot backend, not directly
+// const AI_BASE_URL = 'http://127.0.0.1:8000';  // No longer needed - using Spring Boot gateway
 
 // Global Variables
 let currentVideoId = null;
@@ -11,24 +12,41 @@ let currentRole = null;
 let loginRole = 'student';
 
 function apiFetch(url, options = {}) {
-    return fetch(url, { credentials: 'include', ...options });
+    const token = localStorage.getItem('token');
+    const headers = options.headers || {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Don't set Content-Type for FormData (browser sets it with boundary)
+    if (options.body instanceof FormData && headers['Content-Type']) {
+        delete headers['Content-Type'];
+    }
+    return fetch(url, { ...options, headers });
 }
 
+// All stored videos for filtering
+let allLoadedVideos = [];
+let currentTab = 'all';
+
 // Initialize the application
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     console.log('Peer Learning Platform Modern UI initialized');
+
+    // Protect page - redirect if not authenticated
+    if (!localStorage.getItem('token')) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Load/restore user from localStorage (or from token via /auth/me)
+    const ok = await ensureCurrentUser();
+    if (!ok) return;
 
     // Load all videos on page load
     loadAllVideos();
 
     // Load platform statistics
     loadPlatformStatistics();
-
-    // Check existing session
-    loadCurrentUser();
-
-    // Show login modal on first load
-    showLoginModal();
 
     // Add event listeners
     setupEventListeners();
@@ -41,18 +59,90 @@ document.addEventListener('DOMContentLoaded', function () {
         const button = document.getElementById('ai-chatbot-button');
         const windowEl = document.getElementById('ai-chatbot-window');
         const closeBtn = document.getElementById('ai-chatbot-close');
+        const resizeLeft = document.getElementById('ai-chatbot-resize-left');
+        const promptChips = document.querySelectorAll('.ai-prompt-chip');
         const sendBtn = document.getElementById('ai-send-btn');
         const input = document.getElementById('ai-user-input');
         const fileInput = document.getElementById('ai-file-input');
+        const fileName = document.getElementById('ai-file-name');
 
         if (!button || !windowEl) return;
 
-        const openChat = () => windowEl.classList.add('active');
-        const closeChat = () => windowEl.classList.remove('active');
+        const minWidth = 300;
+        const maxWidth = () => Math.min(720, Math.floor(window.innerWidth * 0.85));
+
+        const clampWidth = (value) => Math.max(minWidth, Math.min(maxWidth(), value));
+
+        const savedWidth = Number(localStorage.getItem('chatbotDrawerWidth') || 420);
+        if (Number.isFinite(savedWidth)) {
+            windowEl.style.width = `${clampWidth(savedWidth)}px`;
+        }
+
+        const openChat = () => {
+            windowEl.classList.add('active');
+            button.setAttribute('aria-expanded', 'true');
+            if (input) input.focus();
+        };
+
+        const closeChat = () => {
+            windowEl.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
+        };
+
+        const initResize = (handle) => {
+            if (!handle) return;
+
+            handle.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+
+                const startX = event.clientX;
+                const startWidth = windowEl.getBoundingClientRect().width;
+                handle.setPointerCapture(event.pointerId);
+
+                const onMove = (moveEvent) => {
+                    const dx = moveEvent.clientX - startX;
+                    // Resize from right edge with right-to-left drag behavior.
+                    const nextWidth = startWidth - dx;
+
+                    windowEl.style.width = `${clampWidth(nextWidth)}px`;
+                };
+
+                const onUp = () => {
+                    const current = Math.round(windowEl.getBoundingClientRect().width);
+                    localStorage.setItem('chatbotDrawerWidth', String(clampWidth(current)));
+                    handle.removeEventListener('pointermove', onMove);
+                    handle.removeEventListener('pointerup', onUp);
+                    handle.removeEventListener('pointercancel', onUp);
+                };
+
+                handle.addEventListener('pointermove', onMove);
+                handle.addEventListener('pointerup', onUp);
+                handle.addEventListener('pointercancel', onUp);
+            });
+        };
+
+        initResize(resizeLeft);
+
+        window.addEventListener('resize', () => {
+            const current = Math.round(windowEl.getBoundingClientRect().width || savedWidth || 420);
+            windowEl.style.width = `${clampWidth(current)}px`;
+        });
 
         button.addEventListener('click', openChat);
+        button.setAttribute('aria-expanded', 'false');
         if (closeBtn) closeBtn.addEventListener('click', closeChat);
         if (sendBtn) sendBtn.addEventListener('click', sendChatMessage);
+
+        if (promptChips.length && input) {
+            promptChips.forEach((chip) => {
+                chip.addEventListener('click', () => {
+                    const prompt = chip.getAttribute('data-prompt') || chip.textContent || '';
+                    input.value = prompt.trim();
+                    input.focus();
+                });
+            });
+        }
+
         if (input) {
             input.addEventListener('keypress', function (e) {
                 if (e.key === 'Enter') {
@@ -60,14 +150,35 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && windowEl.classList.contains('active')) {
+                closeChat();
+            }
+        });
+
         if (fileInput) {
-            fileInput.addEventListener('change', handleAiFileUpload);
+            fileInput.addEventListener('change', (event) => {
+                const selected = event.target.files && event.target.files[0];
+                if (fileName) {
+                    fileName.textContent = selected ? selected.name : 'No file selected';
+                }
+                handleAiFileUpload(event);
+            });
         }
     }
 
     function getAiMeta() {
-        const userId = currentUser && currentUser.rollNumber ? currentUser.rollNumber : 'guest';
-        const subject = 'general';
+        const userId = (
+            currentUser && (
+                currentUser.studentId ||
+                currentUser.id ||
+                currentUser.rollNumber
+            )
+        ) || null;
+        // Try to get subject from a dropdown if it exists, otherwise use 'General'
+        const subjectSelect = document.getElementById('subject-select');
+        const subject = subjectSelect ? subjectSelect.value : 'General';
 
         return { userId, subject };
     }
@@ -87,35 +198,70 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function sendChatMessage() {
         const input = document.getElementById('ai-user-input');
+        const sendBtn = document.getElementById('ai-send-btn');
         if (!input) return;
 
         const question = input.value.trim();
         if (!question) return;
 
-        const { userId } = getAiMeta();
+        const { userId, subject } = getAiMeta();
         addChatMessage('user', question);
         input.value = '';
 
         const thinking = addChatMessage('bot', 'Thinking...');
+        if (sendBtn) sendBtn.disabled = true;
 
         try {
-            const response = await fetch(`${AI_BASE_URL}/chat`, {
+            // Call Spring Boot backend instead of FastAPI directly
+            const aiHeaders = { 'Content-Type': 'application/json' };
+            const token = localStorage.getItem('token');
+            if (token) aiHeaders['Authorization'] = `Bearer ${token}`;
+            
+            const response = await fetch(`${API_BASE_URL}/ai/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ user_id: userId, question })
+                headers: aiHeaders,
+                body: JSON.stringify({ 
+                    userId: userId || 1,
+                    question: question,
+                    subject: subject || 'General',
+                    videoTitle: document.getElementById('videoModalTitle')?.textContent || null,
+                    videoDescription: document.getElementById('videoDescriptionText')?.textContent || null
+                })
+
             });
 
             if (!response.ok) {
-                throw new Error(`AI error: ${response.status}`);
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.message || `Server error: ${response.status}`);
             }
 
             const result = await response.json();
-            if (thinking) thinking.textContent = result.answer || 'No response from AI service.';
+            
+            // Enhanced response with adaptive learning metadata
+            let messageText = result.answer || 'No response from AI service.';
+            
+            // Add learning level indicator if detected
+            if (result.detectedLevel) {
+                messageText += `\n\n📊 Your Learning Level: ${result.detectedLevel}`;
+            }
+            
+            // Add question complexity indicator
+            if (result.questionComplexity) {
+                const complexity = (result.questionComplexity * 100).toFixed(0);
+                messageText += `\n📈 Question Complexity: ${complexity}%`;
+            }
+            
+            if (thinking) thinking.textContent = messageText;
+            
         } catch (error) {
             console.error('AI chat error:', error);
-            if (thinking) thinking.textContent = 'AI service error. Please check the server.';
+            const errorMessage = error.message || 'AI service error. Please check the server.';
+            if (thinking) {
+                thinking.textContent = `❌ ${errorMessage}`;
+                thinking.style.color = '#f44336';
+            }
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
         }
     }
 
@@ -134,38 +280,98 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Use Spring Boot backend gateway for file uploads
         const endpoint = isPdf
-            ? `${AI_BASE_URL}/upload/pdf/${encodeURIComponent(userId)}/${encodeURIComponent(subject)}`
-            : `${AI_BASE_URL}/upload/image/${encodeURIComponent(userId)}/${encodeURIComponent(subject)}`;
+            ? `${API_BASE_URL}/ai/upload/pdf`
+            : `${API_BASE_URL}/ai/upload/image`;
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('userId', String(userId || '1'));
+        formData.append('subject', subject || 'General');
 
-        const statusMessage = addChatMessage('bot', 'Uploading file...');
+        const statusMessage = addChatMessage('bot', '📤 Uploading file...');
 
         try {
+            const uploadHeaders = {};
+            const tkn = localStorage.getItem('token');
+            if (tkn) uploadHeaders['Authorization'] = `Bearer ${tkn}`;
+            
             const response = await fetch(endpoint, {
                 method: 'POST',
+                headers: uploadHeaders,
                 body: formData
             });
 
             if (!response.ok) {
-                throw new Error(`Upload error: ${response.status}`);
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.message || `Upload error: ${response.status}`);
             }
 
             const result = await response.json();
-            if (statusMessage) statusMessage.textContent = result.message || 'File uploaded.';
+            if (statusMessage) {
+                statusMessage.textContent = result.message || '✅ File uploaded successfully!';
+            }
         } catch (error) {
             console.error('AI upload error:', error);
-            if (statusMessage) statusMessage.textContent = 'File upload failed. Check the AI server.';
+            if (statusMessage) {
+                statusMessage.textContent = `❌ File upload failed: ${error.message}`;
+                statusMessage.style.color = '#f44336';
+            }
         } finally {
             event.target.value = '';
+            const fileName = document.getElementById('ai-file-name');
+            if (fileName) fileName.textContent = 'No file selected';
         }
     }
 
     // Initialize AI chatbot
     setupChatbot();
 });
+
+async function ensureCurrentUser() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = 'login.html';
+        return false;
+    }
+
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+        loadCurrentUser();
+        return true;
+    }
+
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/auth/me`);
+        const data = await response.json().catch(() => ({}));
+        const principal = data && data.user ? data.user : null;
+
+        if (!principal) {
+            // Token exists but no principal -> treat as logged out
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+            return false;
+        }
+
+        const normalized = {
+            role: principal.role,
+            studentId: principal.studentId ?? null,
+            rollNumber: principal.rollNumber ?? null,
+            fullName: principal.name ?? null,
+            department: principal.department ?? null,
+            email: principal.email ?? null,
+        };
+        localStorage.setItem('user', JSON.stringify(normalized));
+        setCurrentUser(normalized);
+        return true;
+    } catch (e) {
+        console.error('ensureCurrentUser error:', e);
+        window.location.href = 'login.html';
+        return false;
+    }
+}
 
 let currentUploadType = 'link';
 
@@ -237,6 +443,21 @@ function closeModal(modalId) {
     if (modal && overlay) {
         modal.classList.remove('active');
         overlay.classList.remove('active');
+
+        if (modalId === 'videoModal') {
+            const frame = document.getElementById('videoFrame');
+            const player = document.getElementById('videoPlayer');
+            if (frame) {
+                frame.src = '';
+                frame.style.display = 'none';
+            }
+            if (player) {
+                player.pause();
+                player.removeAttribute('src');
+                player.load();
+                player.style.display = 'none';
+            }
+        }
     }
 }
 
@@ -255,6 +476,14 @@ function showUploadModal() {
     if (!currentUser) {
         showAlert('Please login to upload videos.', 'warning');
         return;
+    }
+    // Auto-fill department and roll number from user profile
+    const deptSelect = document.getElementById('videoDepartment');
+    if (deptSelect && currentUser.department) deptSelect.value = currentUser.department;
+    const rollInput = document.getElementById('uploaderRollNumber');
+    if (rollInput) {
+        rollInput.value = currentUser.rollNumber || '';
+        rollInput.readOnly = true;
     }
     openModal('uploadModal');
 }
@@ -294,40 +523,41 @@ function setCurrentUser(user) {
     updateAuthUI();
 }
 
-async function loadCurrentUser() {
-    try {
-        const response = await apiFetch(`${API_BASE_URL}/auth/me`);
-        const result = await response.json();
-        console.log('Auth /me response:', result);
-        
-        if (result.success && result.user) {
-            console.log('User loaded:', result.user);
-            setCurrentUser(result.user);
-            closeModal('loginModal');
-        } else {
-            console.log('No user found in response');
+function loadCurrentUser() {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            setCurrentUser(user);
+        } catch (e) {
+            console.error('Failed to parse user from localStorage');
             setCurrentUser(null);
         }
-    } catch (error) {
-        console.error('Load current user error:', error);
-        setCurrentUser(null);
+    } else {
+        window.location.href = 'login.html';
     }
 }
 
 function updateAuthUI() {
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const userBadge = document.getElementById('currentUserBadge');
-    const uploaderInput = document.getElementById('uploaderRollNumber');
-    const commenterInput = document.getElementById('commenterRollNumber');
-
     if (currentUser) {
-        if (loginBtn) loginBtn.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
-        if (userBadge) {
-            userBadge.style.display = 'inline-flex';
-            userBadge.textContent = `${currentUser.fullName || 'Student'} (${currentUser.rollNumber || currentUser.email})`;
+        // Populate navbar user info
+        const avatar = document.getElementById('userAvatar');
+        const nameEl = document.getElementById('navUserName');
+        const deptEl = document.getElementById('navUserDept');
+        const welcomeEl = document.getElementById('welcomeText');
+
+        if (avatar) {
+            const initials = (currentUser.fullName || 'S')
+                .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            avatar.textContent = initials;
         }
+        if (nameEl) nameEl.textContent = currentUser.fullName || 'Student';
+        if (deptEl) deptEl.textContent = currentUser.department || 'Student';
+        if (welcomeEl) welcomeEl.textContent = `Welcome back, ${(currentUser.fullName || 'Student').split(' ')[0]}!`;
+
+        // Auto-fill roll numbers
+        const uploaderInput = document.getElementById('uploaderRollNumber');
+        const commenterInput = document.getElementById('commenterRollNumber');
         if (uploaderInput) {
             uploaderInput.value = currentUser.rollNumber || '';
             uploaderInput.readOnly = true;
@@ -335,18 +565,6 @@ function updateAuthUI() {
         if (commenterInput) {
             commenterInput.value = currentUser.rollNumber || '';
             commenterInput.readOnly = true;
-        }
-    } else {
-        if (loginBtn) loginBtn.style.display = 'inline-flex';
-        if (logoutBtn) logoutBtn.style.display = 'none';
-        if (userBadge) userBadge.style.display = 'none';
-        if (uploaderInput) {
-            uploaderInput.value = '';
-            uploaderInput.readOnly = false;
-        }
-        if (commenterInput) {
-            commenterInput.value = '';
-            commenterInput.readOnly = false;
         }
     }
 }
@@ -402,10 +620,10 @@ async function loginStudent() {
     }
 }
 
-async function logoutUser() {
-    await apiFetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' });
-    setCurrentUser(null);
-    showAlert('Logged out', 'success');
+function logoutUser() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'landing.html';
 }
 
 function showVideoModal(videoId) {
@@ -625,6 +843,7 @@ async function loadAllVideos() {
         // Sort by upload date (newest first)
         allVideos.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
 
+        allLoadedVideos = allVideos;
         displayVideos(allVideos);
     } catch (error) {
         console.error('Load videos error:', error);
@@ -632,6 +851,28 @@ async function loadAllVideos() {
     } finally {
         hideLoading();
     }
+}
+
+function switchContentTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.content-tab').forEach(t => {
+        t.classList.toggle('active', t.getAttribute('data-tab') === tab);
+    });
+
+    if (tab === 'my') {
+        loadMyVideos();
+    } else {
+        displayVideos(allLoadedVideos);
+    }
+}
+
+function loadMyVideos() {
+    if (!currentUser || !currentUser.rollNumber) {
+        displayVideos([]);
+        return;
+    }
+    const myVideos = allLoadedVideos.filter(v => v.uploaderRollNumber === currentUser.rollNumber);
+    displayVideos(myVideos);
 }
 
 async function loadVideosByDepartment(department) {
@@ -706,18 +947,60 @@ async function loadVideoDetails(videoId) {
             // Convert URL to embed format
             const embedInfo = convertToEmbedUrl(video.videoUrl);
             const videoFrame = document.getElementById('videoFrame');
+            const videoPlayer = document.getElementById('videoPlayer');
 
-            if (embedInfo.type === 'youtube' || embedInfo.type === 'gdrive') {
-                videoFrame.src = embedInfo.embedUrl;
-                // If it was a video tag before, we might need to recreate iframe if we want to be robust, 
-                // but here we assume iframe is always there or we replace parent content.
-                // In index.html it is an iframe.
+            const rawUrl = (video.videoUrl || '').trim();
+            const lowerUrl = rawUrl.toLowerCase();
+            const isDirectVideo = /\.(mp4|webm|ogg)(\?|#|$)/i.test(lowerUrl) || lowerUrl.includes('/uploads/');
+            const looksLikeHomepage = /^(https?:\/\/)(localhost|127\.0\.0\.1):8080(\/api)?\/?$/.test(lowerUrl);
+
+            const showIframe = (src) => {
+                if (videoPlayer) {
+                    videoPlayer.pause();
+                    videoPlayer.removeAttribute('src');
+                    videoPlayer.load();
+                    videoPlayer.style.display = 'none';
+                }
+                if (videoFrame) {
+                    videoFrame.src = src || '';
+                    videoFrame.style.display = 'block';
+                }
+            };
+
+            const showVideo = (src) => {
+                if (videoFrame) {
+                    videoFrame.src = '';
+                    videoFrame.style.display = 'none';
+                }
+                if (videoPlayer) {
+                    videoPlayer.preload = 'metadata';
+                    videoPlayer.setAttribute('playsinline', 'playsinline');
+                    videoPlayer.src = src || '';
+                    videoPlayer.style.display = 'block';
+                    // Skip exact first frame (often black for uploaded videos)
+                    videoPlayer.onloadedmetadata = () => {
+                        try {
+                            if (!Number.isNaN(videoPlayer.duration) && videoPlayer.duration > 1) {
+                                videoPlayer.currentTime = 0.2;
+                            }
+                        } catch (e) {
+                            // ignore seek issues
+                        }
+                    };
+                }
+            };
+
+            if (!rawUrl || looksLikeHomepage) {
+                showIframe('');
+                showAlert('This video link looks invalid (not a playable URL). Please re-upload or use a proper YouTube/Drive/video file URL.', 'warning');
+            } else if (embedInfo.type === 'youtube' || embedInfo.type === 'gdrive') {
+                showIframe(embedInfo.embedUrl);
+            } else if (isDirectVideo) {
+                // Uploaded/local video: avoid iframe embedding restrictions (X-Frame-Options)
+                showVideo(rawUrl);
             } else {
-                // For direct video files, we might need to replace iframe with video tag.
-                // For simplicity, let's assume iframe works or we'd need to swap elements.
-                // Given the original code swapped outerHTML, let's do similar if needed.
-                // But for now, let's stick to iframe src if possible or just warn.
-                videoFrame.src = video.videoUrl;
+                // Fallback: try iframe; some sites may block framing.
+                showIframe(rawUrl);
             }
 
             document.getElementById('videoDepartmentBadge').textContent = video.department;
@@ -776,6 +1059,11 @@ async function likeVideo() {
         return;
     }
 
+    if (!currentUser.rollNumber) {
+        showAlert('Only student accounts can like videos', 'warning');
+        return;
+    }
+
     try {
         const response = await apiFetch(`${API_BASE_URL}/videos/${currentVideoId}/likes`, {
             method: 'POST'
@@ -831,6 +1119,11 @@ async function addComment() {
 
     if (!currentUser) {
         showAlert('Please login to comment', 'warning');
+        return;
+    }
+
+    if (!currentUser.rollNumber) {
+        showAlert('Only student accounts can comment', 'warning');
         return;
     }
 
@@ -900,8 +1193,8 @@ function displayVideos(videos) {
 
     if (!videos || videos.length === 0) {
         container.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
-                <i class="fas fa-video-slash fa-3x" style="margin-bottom: 1rem; display: block;"></i>
+            <div class="empty-state">
+                <i class="fas fa-video-slash"></i>
                 <h3>No videos found</h3>
                 <p>Be the first to upload a video!</p>
             </div>
@@ -909,27 +1202,33 @@ function displayVideos(videos) {
         return;
     }
 
+    const userRoll = currentUser ? currentUser.rollNumber : null;
+
     container.innerHTML = videos.map(video => {
         const embedInfo = convertToEmbedUrl(video.videoUrl);
+        const isOwn = userRoll && video.uploaderRollNumber === userRoll;
+        const thumbnailMarkup = embedInfo.thumbnailUrl
+            ? `<img src="${embedInfo.thumbnailUrl}" alt="${video.title}">`
+            : embedInfo.type === 'direct'
+                ? `<video class="video-preview" muted preload="metadata" playsinline src="${embedInfo.previewUrl || video.videoUrl}"></video>`
+                : `<div style="width:100%; height:100%; background:linear-gradient(135deg,#4f46e5,#6d28d9); display:flex; align-items:center; justify-content:center;"><i class="fas fa-play" style="color:#fff; font-size:2rem;"></i></div>`;
 
         return `
         <div class="video-card" onclick="showVideoModal(${video.id})">
             <div class="video-thumbnail">
-                ${embedInfo.thumbnailUrl ?
-                `<img src="${embedInfo.thumbnailUrl}" alt="${video.title}">` :
-                `<div style="width:100%; height:100%; background:#000; display:flex; align-items:center; justify-content:center;"><i class="fas fa-play fa-2x"></i></div>`
-            }
-                <div class="play-icon">
+                ${thumbnailMarkup}
+                <div class="play-overlay">
                     <i class="fas fa-play-circle"></i>
                 </div>
             </div>
-            <div class="video-info">
+            <div class="video-body">
                 <div class="video-tags">
-                    <span class="badge badge-primary">${video.department}</span>
-                    <span class="badge badge-secondary">${video.subject}</span>
+                    <span class="badge badge-dept">${video.department}</span>
+                    <span class="badge badge-subject">${video.subject}</span>
+                    ${isOwn ? '<span class="badge badge-own">My Upload</span>' : ''}
                 </div>
                 <h4 class="video-title">${video.title}</h4>
-                <div class="video-meta-footer">
+                <div class="video-meta">
                     <span><i class="fas fa-user"></i> ${video.uploaderName}</span>
                     <span><i class="fas fa-clock"></i> ${formatDate(video.uploadDate)}</span>
                 </div>
@@ -941,31 +1240,55 @@ function displayVideos(videos) {
 
 // Utility Functions
 function convertToEmbedUrl(url) {
+    const safeUrl = (url || '').trim();
+
+    if (!safeUrl) {
+        return {
+            embedUrl: '',
+            thumbnailUrl: null,
+            previewUrl: null,
+            type: 'other'
+        };
+    }
+
     // Handle YouTube URLs
-    const ytMatch = url.match(/(?:https?:\/\/(?:www\.)?youtube\.com\/watch\?v=|https?:\/\/(?:www\.)?youtu\.be\/)([\w-]{11})/);
+    const ytMatch = safeUrl.match(/(?:https?:\/\/(?:www\.)?youtube\.com\/watch\?v=|https?:\/\/(?:www\.)?youtu\.be\/)([\w-]{11})/);
     if (ytMatch) {
         const videoId = ytMatch[1];
         return {
             embedUrl: `https://www.youtube.com/embed/${videoId}`,
             thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+            previewUrl: null,
             type: 'youtube'
         };
     }
 
     // Handle Google Drive URLs
-    const gdMatch = url.match(/https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    const gdMatch = safeUrl.match(/https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (gdMatch) {
         const fileId = gdMatch[1];
         return {
             embedUrl: `https://drive.google.com/file/d/${fileId}/preview`,
             thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
+            previewUrl: null,
             type: 'gdrive'
         };
     }
 
+    const isDirectVideo = /\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/i.test(safeUrl) || safeUrl.toLowerCase().includes('/uploads/');
+    if (isDirectVideo) {
+        return {
+            embedUrl: safeUrl,
+            thumbnailUrl: null,
+            previewUrl: safeUrl.includes('#') ? safeUrl : `${safeUrl}#t=0.8`,
+            type: 'direct'
+        };
+    }
+
     return {
-        embedUrl: url,
+        embedUrl: safeUrl,
         thumbnailUrl: null,
+        previewUrl: null,
         type: 'other'
     };
 }
@@ -1006,7 +1329,7 @@ function showAlert(message, type) {
         border-radius: 12px;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         z-index: 9999;
-        font-family: var(--font-main);
+        font-family: 'Inter', sans-serif;
         animation: slideIn 0.3s ease-out;
         display: flex;
         align-items: center;
@@ -1077,16 +1400,9 @@ async function loadPlatformStatistics() {
 
 // Export functions for global access (HTML onclick handlers)
 window.switchUploadTab = switchUploadTab;
-window.showRegisterModal = showRegisterModal;
-window.showLoginModal = showLoginModal;
-window.showForgotPasswordModal = showForgotPasswordModal;
-window.switchToRegister = switchToRegister;
-window.setLoginRole = setLoginRole;
 window.showUploadModal = showUploadModal;
 window.showVideoModal = showVideoModal;
 window.closeModal = closeModal;
-window.registerStudent = registerStudent;
-window.loginStudent = loginStudent;
 window.logoutUser = logoutUser;
 window.startForgotPassword = startForgotPassword;
 window.resetPasswordWithSecurity = resetPasswordWithSecurity;
@@ -1097,3 +1413,4 @@ window.searchVideos = searchVideos;
 window.likeVideo = likeVideo;
 window.addComment = addComment;
 window.deleteCurrentVideo = deleteCurrentVideo;
+window.switchContentTab = switchContentTab;
