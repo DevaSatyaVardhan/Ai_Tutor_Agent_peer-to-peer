@@ -16,7 +16,8 @@ def is_today_date_query(query: str) -> bool:
 
 def is_time_sensitive_query(query: str) -> bool:
     q = (query or "").lower()
-    return any(word in q for word in ["today", "latest", "news", "current", "now", "live"])
+    words = set(re.findall(r"\b\w+\b", q))
+    return bool(words.intersection({"today", "latest", "news", "current", "now", "live"}))
 
 
 def is_live_web_query(query: str) -> bool:
@@ -40,7 +41,9 @@ def is_document_query(query: str) -> bool:
         "notes",
         "summarise",
         "summarize",
-        "read the uploaded",
+        "read",
+        "what is in the",
+        "extract",
     ]
     return any(keyword in q for keyword in keywords)
 
@@ -85,11 +88,39 @@ def retrieve_rag_context(vectorstore: Chroma, question: str, k: int = 6) -> str:
     return "\n\n".join(collected)
 
 
-def answer_from_rag_context(question: str, context_text: str, site_context: str, memory_block: str) -> str:
+def retrieve_rag_context_for_subject(user_id: str, subject: str | None, question: str, k: int = 6) -> str:
+    candidate_subjects: list[str | None] = [subject, "General", None]
+    seen_subjects: set[str] = set()
+
+    for candidate_subject in candidate_subjects:
+        normalized_subject = (candidate_subject or "").strip() or "default"
+        if normalized_subject in seen_subjects:
+            continue
+        seen_subjects.add(normalized_subject)
+
+        vectorstore = get_vectorstore(user_id, candidate_subject)
+        rag_context = retrieve_rag_context(vectorstore, question, k=k)
+        if rag_context:
+            return rag_context
+
+    return ""
+
+
+def answer_from_rag_context(question: str, context_text: str, site_context: str, memory_block: str, is_doc_query: bool = False) -> str:
+    if is_doc_query:
+        instruction = (
+            "You are an AI tutor. Answer from the provided DOCUMENT CONTEXT first. "
+            "Do not say you cannot access attachments when context is present. "
+            "If context is insufficient, say exactly what is missing and ask one concise follow-up."
+        )
+    else:
+        instruction = (
+            "You are an AI tutor. Use the provided DOCUMENT CONTEXT if it is relevant to the user's QUESTION. "
+            "If the context is irrelevant to the user's QUESTION, answer the QUESTION directly using your general knowledge."
+        )
+
     prompt = (
-        "You are an AI tutor. Answer from the provided DOCUMENT CONTEXT first. "
-        "Do not say you cannot access attachments when context is present. "
-        "If context is insufficient, say exactly what is missing and ask one concise follow-up.\n\n"
+        f"{instruction}\n\n"
         f"QUESTION:\n{question}\n\n"
         f"DOCUMENT CONTEXT:\n{context_text}\n\n"
         f"WEBSITE CONTEXT:\n{site_context}\n\n"
@@ -144,28 +175,26 @@ def process_chat(user_id: str, subject: str | None, question: str, site_context:
     cleaned_site_context = (site_context or "").strip()
 
     try:
-        if is_live_web_query(question):
-            web_answer = answer_from_web(question, cleaned_site_context, memory_block)
-            answer = web_answer or (
-                "I could not fetch live web results right now. "
-                "Please retry in a few seconds."
-            )
-        elif is_document_query(question):
-            vectorstore = get_vectorstore(user_id, subject)
-            rag_context = retrieve_rag_context(vectorstore, question, k=6)
+        if is_document_query(question):
+            rag_context = retrieve_rag_context_for_subject(user_id, subject, question, k=6)
 
             if rag_context:
-                answer = answer_from_rag_context(question, rag_context, cleaned_site_context, memory_block)
+                answer = answer_from_rag_context(question, rag_context, cleaned_site_context, memory_block, is_doc_query=True)
             else:
                 answer = (
                     "I couldn't find indexed content for your uploaded file in this subject yet. "
                     "Please re-upload and ask again, or try subject 'General'."
                 )
+        elif is_live_web_query(question):
+            web_answer = answer_from_web(question, cleaned_site_context, memory_block)
+            answer = web_answer or (
+                "I could not fetch live web results right now. "
+                "Please retry in a few seconds."
+            )
         else:
-            vectorstore = get_vectorstore(user_id, subject)
-            rag_context = retrieve_rag_context(vectorstore, question, k=6)
+            rag_context = retrieve_rag_context_for_subject(user_id, subject, question, k=6)
             if rag_context:
-                answer = answer_from_rag_context(question, rag_context, cleaned_site_context, memory_block)
+                answer = answer_from_rag_context(question, rag_context, cleaned_site_context, memory_block, is_doc_query=False)
             else:
                 answer = answer_from_general_knowledge(question, cleaned_site_context, memory_block)
 

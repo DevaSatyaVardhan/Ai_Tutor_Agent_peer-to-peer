@@ -41,7 +41,9 @@ async def upload_pdf(user_id: str, subject: str, file: UploadFile = File(...)):
     with open(path, "wb") as upload_file:
         upload_file.write(await file.read())
 
-    text = extract_text_from_pdf(str(path))
+    raw_text = extract_text_from_pdf(str(path))
+    text = f"The uploaded PDF document '{file.filename}' contains the following text content:\n{raw_text}"
+    
     chunks = index_text(
         vectorstore,
         text,
@@ -77,7 +79,9 @@ async def upload_image(user_id: str, subject: str, file: UploadFile = File(...))
     with open(path, "wb") as upload_file:
         upload_file.write(await file.read())
 
-    text = extract_text_from_image(str(path))
+    raw_text = extract_text_from_image(str(path))
+    text = f"The uploaded image '{file.filename}' contains the following text content:\n{raw_text}"
+    
     chunks = index_text(
         vectorstore,
         text,

@@ -49,7 +49,7 @@ public class AiAgentController {
     ) {
         Map<String, Object> result = gatewayService.uploadPdf(file, userId, subject);
         if (result.containsKey("error")) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
         }
         return ResponseEntity.ok(result);
     }
@@ -62,7 +62,7 @@ public class AiAgentController {
     ) {
         Map<String, Object> result = gatewayService.uploadImage(file, userId, subject);
         if (result.containsKey("error")) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
         }
         return ResponseEntity.ok(result);
     }
