@@ -9,6 +9,22 @@ from ai_agent.vector_store import get_vectorstore
 from ai_agent.web_search import build_live_search_response, tavily_search
 
 
+TUTOR_RESPONSE_GUIDELINES = """
+Format the response for easy reading:
+- Start with a short, descriptive heading.
+- For programming questions, use these sections in this order:
+  1. Approach
+  2. Complete Code
+  3. How It Works
+  4. Example Output
+  5. Complexity
+- Put code in a properly tagged fenced code block. Never place the complete
+  code on the same line as the explanation.
+- Keep explanations concise and use bullet points where helpful.
+- Include only sections that are relevant to the question.
+"""
+
+
 def is_today_date_query(query: str) -> bool:
     q = (query or "").lower().strip()
     return bool(re.search(r"\b(today'?s date|what is today|today date|date today)\b", q))
@@ -120,7 +136,7 @@ def answer_from_rag_context(question: str, context_text: str, site_context: str,
         )
 
     prompt = (
-        f"{instruction}\n\n"
+        f"{instruction}\n{TUTOR_RESPONSE_GUIDELINES}\n"
         f"QUESTION:\n{question}\n\n"
         f"DOCUMENT CONTEXT:\n{context_text}\n\n"
         f"WEBSITE CONTEXT:\n{site_context}\n\n"
@@ -141,7 +157,7 @@ def answer_from_web(question: str, site_context: str, memory_block: str) -> str:
 def answer_from_general_knowledge(question: str, site_context: str, memory_block: str) -> str:
     prompt = (
         "You are an AI tutor. Answer directly, clearly, and concisely. "
-        "Use website context if relevant.\n\n"
+        f"Use website context if relevant.\n{TUTOR_RESPONSE_GUIDELINES}\n"
         f"Question: {question}\n"
         f"Website context: {site_context}\n"
         f"Recent chat:\n{memory_block}"
@@ -153,7 +169,7 @@ def answer_from_general_knowledge(question: str, site_context: str, memory_block
 def answer_with_fallback_model(question: str, site_context: str, memory_block: str) -> str:
     backup_prompt = (
         "You are an AI tutor. Give a clear, concise answer. "
-        "If something is uncertain, say so briefly.\n\n"
+        f"If something is uncertain, say so briefly.\n{TUTOR_RESPONSE_GUIDELINES}\n"
         f"Question: {question}\n"
         f"Website context: {site_context}\n"
         f"Recent chat:\n{memory_block}"

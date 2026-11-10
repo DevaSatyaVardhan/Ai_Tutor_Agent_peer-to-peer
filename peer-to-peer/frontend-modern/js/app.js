@@ -183,13 +183,112 @@ document.addEventListener('DOMContentLoaded', async function () {
         return { userId, subject };
     }
 
+    function escapeAiHtml(value) {
+        const element = document.createElement('div');
+        element.textContent = String(value ?? '');
+        return element.innerHTML;
+    }
+
+    function formatAiInlineMarkdown(value) {
+        let html = escapeAiHtml(value);
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        return html;
+    }
+
+    function renderAiMarkdown(text) {
+        const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n');
+        const output = [];
+        let paragraph = [];
+        let listType = null;
+        let codeLines = null;
+
+        const flushParagraph = () => {
+            if (paragraph.length) {
+                output.push(`<p>${formatAiInlineMarkdown(paragraph.join(' '))}</p>`);
+                paragraph = [];
+            }
+        };
+
+        const closeList = () => {
+            if (listType) {
+                output.push(`</${listType}>`);
+                listType = null;
+            }
+        };
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+
+            if (codeLines) {
+                if (trimmed.startsWith('```')) {
+                    output.push(`<pre><code>${escapeAiHtml(codeLines.join('\n'))}</code></pre>`);
+                    codeLines = null;
+                } else {
+                    codeLines.push(line);
+                }
+                continue;
+            }
+
+            if (trimmed.startsWith('```')) {
+                flushParagraph();
+                closeList();
+                codeLines = [];
+                continue;
+            }
+
+            if (!trimmed) {
+                flushParagraph();
+                closeList();
+                continue;
+            }
+
+            const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
+            if (heading) {
+                flushParagraph();
+                closeList();
+                const level = Math.min(heading[0].match(/^#+/)[0].length, 6);
+                output.push(`<h${level}>${formatAiInlineMarkdown(heading[1])}</h${level}>`);
+                continue;
+            }
+
+            const unorderedItem = trimmed.match(/^[-*]\s+(.+)$/);
+            const orderedItem = trimmed.match(/^\d+[.)]\s+(.+)$/);
+            if (unorderedItem || orderedItem) {
+                flushParagraph();
+                const nextListType = unorderedItem ? 'ul' : 'ol';
+                if (listType !== nextListType) {
+                    closeList();
+                    output.push(`<${nextListType}>`);
+                    listType = nextListType;
+                }
+                output.push(`<li>${formatAiInlineMarkdown((unorderedItem || orderedItem)[1])}</li>`);
+                continue;
+            }
+
+            closeList();
+            paragraph.push(trimmed);
+        }
+
+        if (codeLines) {
+            output.push(`<pre><code>${escapeAiHtml(codeLines.join('\n'))}</code></pre>`);
+        }
+        flushParagraph();
+        closeList();
+        return output.join('');
+    }
+
     function addChatMessage(role, text) {
         const messages = document.getElementById('ai-chatbot-messages');
         if (!messages) return null;
 
         const message = document.createElement('div');
         message.className = `ai-message ${role}`.trim();
-        message.textContent = text;
+        if (role === 'bot') {
+            message.innerHTML = renderAiMarkdown(text);
+        } else {
+            message.textContent = text;
+        }
         messages.appendChild(message);
         messages.scrollTop = messages.scrollHeight;
 
@@ -251,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 messageText += `\n📈 Question Complexity: ${complexity}%`;
             }
             
-            if (thinking) thinking.textContent = messageText;
+            if (thinking) thinking.innerHTML = renderAiMarkdown(messageText);
             
         } catch (error) {
             console.error('AI chat error:', error);
